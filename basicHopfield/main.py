@@ -8,6 +8,7 @@ __author__ = "Janis Kühn"
 __license__ = "Apache 2.0"
 __email__ = "jk@stud.uni-frankfurt.de"
 __status__ = "Prototype"
+__pythonVersion__ = "3.6"
 
 # initialize network:
 # N Neurons, n*m pixel image
