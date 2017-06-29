@@ -11,6 +11,7 @@ def bipolize_image(img_path: str, threshold: int = 150) -> np.ndarray:
     barray = bipolize_array(array, threshold)
     return barray
 
+
 def bipolize_array(a: np.ndarray, threshold: int = 150) ->np.ndarray:
     """Binarize a numpy array."""
     b = np.ones(a.shape, dtype=int)
@@ -20,6 +21,7 @@ def bipolize_array(a: np.ndarray, threshold: int = 150) ->np.ndarray:
                 b[i][j] = (-1)
     return b
 
+
 def ShowBinayImage(image: np.ndarray):
     im = Image.new("RGB", image.shape, 0 )
     for i in range(len(image)):
@@ -27,6 +29,7 @@ def ShowBinayImage(image: np.ndarray):
             im.putpixel((j,i), (0,0,0) if image[i][j] > 0 else (255,255,255) )
 
     Image._show(im)
+    
     
 def PrintBinayImage(image: np.ndarray):
     s = ''
