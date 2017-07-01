@@ -21,6 +21,22 @@ def bipolize_array(a: np.ndarray, threshold: int = 150) ->np.ndarray:
                 b[i][j] = (-1)
     return b
 
+def binarize_image(img_path: str, threshold: int = 150) -> np.ndarray:
+    """Binarize an image and return it."""
+    image_file = Image.open(img_path)
+    image = image_file.convert('L')  # convert image to monochrome
+    image = np.array(image)
+    image = binarize_array(image, threshold)
+    return image
+
+def binarize_array(a: np.ndarray, threshold: int = 150) ->np.ndarray:
+    """Binarize a numpy array."""
+    b = np.zeros(a.shape, dtype=int)
+    for i in range(len(a)):
+        for j in range(len(a[i])):
+            if a[i][j] < threshold:
+                b[i][j] = 1
+    return b
 
 def ShowBinayImage(image: np.ndarray):
     im = Image.new("RGB", image.shape, 0 )
