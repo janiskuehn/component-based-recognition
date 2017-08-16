@@ -20,10 +20,10 @@ class NeuralState:  # S μ
         self.w = width
         self.h = height
         self.N = width*height
-        if initial_vector:
-            self.vec = initial_vector.copy()
-        else:
+        if initial_vector is None:
             self.vec = np.zeros(self.N, dtype=int)
+        else:
+            self.vec = initial_vector.copy()
 
     def print(self):
         """
@@ -84,4 +84,3 @@ class NeuralState:  # S μ
             for j in range(self.N):
                 weight[i][j] = self.neuron_linear_distance_weight(i, j)
         return weight
-
