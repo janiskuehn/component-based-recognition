@@ -59,7 +59,7 @@ class NeuralState:  # S μ
         """
         return np.outer(self.vec, self.vec)
 
-    def initial_weight(self) -> np.ndarray:
+    def initial_weight(self, normalize: bool = False) -> np.ndarray:
         """
         Calculates a weight matrix with linear decreasing weight by distance between neurons.
         :return: 2D weight matrix with (i,j) = neuron_linear_distance_weight(i,j)
@@ -67,14 +67,15 @@ class NeuralState:  # S μ
         weight = np.zeros((self.N, self.N), dtype=float)
         for i in range(self.N):
             for j in range(self.N):
-                weight[i][j] = self.neuron_linear_distance_weight(i, j)
+                weight[i][j] = self.neuron_linear_distance_weight(i, j, normalize)
         return weight
 
-    def neuron_linear_distance_weight(self, i: int, j: int) -> float:
+    def neuron_linear_distance_weight(self, i: int, j: int, normalize: bool = False) -> float:
         """
         Calculates the distance relative distance between two neurons.
         :param i: Index of first neuron
         :param j: Index of second neuron
+        :param normalize: If set true the Sum of all connection weights for one neuron is 1
         :return: Linear value from 0.1 to 1 (0.1 for the maximum distance between them, 1 for no distance between them)
                     or 0 for i = j
         """
@@ -86,4 +87,6 @@ class NeuralState:  # S μ
     
         d = sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
         m = sqrt((self.h - 1) ** 2 + (self.w - 1) ** 2)
-        return (m - 0.9 * d - 0.1) / (m - 1)
+        not_norm = (m - 0.9 * d - 0.1) / (m - 1)
+        norm = not_norm / (0.6 * (m-1))
+        return norm if normalize else not_norm
