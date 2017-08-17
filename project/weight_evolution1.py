@@ -1,5 +1,9 @@
 import numpy as np
+import numpy.linalg as la
 import neural
+
+# Necessary for Overflow Error detection:
+np.seterr(all='raise')
 
 
 def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, steps: int, dt: float) -> list:
@@ -14,7 +18,16 @@ def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, steps: 
     """
     ret = [w0]
     for i in range(1, steps+1):
-        ret.append(ret[i-1] + dt * delta_w(ret[i-1], s, alpha))
+        try:
+            dw = delta_w(ret[i - 1], s, alpha)
+        except OverflowError:
+            print("Overflow Error by step = "+str(i)+" for alpha = "+str(alpha)+" and dt = "+str(dt))
+            break
+        except FloatingPointError:
+            print("Overflow Error by step = " + str(i) + " for alpha = " + str(alpha) + " and dt = " + str(dt))
+            break
+            
+        ret.append(ret[i-1] + dt * dw)
     return ret
     
 
@@ -27,11 +40,12 @@ def delta_w(w: np.ndarray, s: neural.NeuralState, alpha: float) -> np.ndarray:
     :return: 2D matrix dw/dt.
     """
     shp = np.shape(w)
+    l = w.shape[0]
     ret = np.zeros(shp, dtype=float)
     d_mat = d_matrix(w)
     d_prime_mat = d_prime_matrix(d_mat)
-    for i in range(s.w):
-        for j in range(s.h):
+    for i in range(l):
+        for j in range(l):
             ret[i][j] = delta_w_ij(i, j, d_prime_mat, w, s, alpha)
     return ret
     
@@ -66,8 +80,8 @@ def d_matrix(w: np.ndarray) -> np.ndarray:
     """
     l = w.shape[0]
     one = np.identity(l)
-    w2 = np.dot(w, w)
-    w3 = np.dot(w2, w)
+    w2 = la.matrix_power(w, 2)
+    w3 = la.matrix_power(w, 3)
     return one + w + w2 + w3
 
 
