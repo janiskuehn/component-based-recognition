@@ -23,6 +23,9 @@ class NeuralState:  # S μ
         if initial_vector is None:
             self.vec = np.zeros(self.N, dtype=int)
         else:
+            if initial_vector.size != width * height:
+                print("Initial vector size does not meet width and height")
+                quit()
             self.vec = initial_vector.copy()
 
     def print(self):
@@ -41,24 +44,6 @@ class NeuralState:  # S μ
         xi = (i % self.w)
         yi = (i // self.w)
         return xi, yi
-
-    def neuron_linear_distance_weight(self, i: int, j: int) -> float:
-        """
-        Calculates the distance relative distance between two neurons.
-        :param i: Index of first neuron
-        :param j: Index of second neuron
-        :return: Linear value from 0.1 to 1 (0.1 for the maximum distance between them, 1 for no distance between them)
-                    or 0 for i = j
-        """
-        if i == j:
-            return 0
-        
-        xi, yi = self.xy_i(i)
-        xj, yj = self.xy_i(j)
-        
-        d = sqrt((xi - xj)**2 + (yi - yj)**2)
-        m = sqrt((self.h - 1)**2 + (self.w - 1)**2)
-        return (m - 0.9 * d - 0.1) / (m - 1)
     
     def active_neuron_count(self) -> int:
         """
@@ -84,3 +69,21 @@ class NeuralState:  # S μ
             for j in range(self.N):
                 weight[i][j] = self.neuron_linear_distance_weight(i, j)
         return weight
+
+    def neuron_linear_distance_weight(self, i: int, j: int) -> float:
+        """
+        Calculates the distance relative distance between two neurons.
+        :param i: Index of first neuron
+        :param j: Index of second neuron
+        :return: Linear value from 0.1 to 1 (0.1 for the maximum distance between them, 1 for no distance between them)
+                    or 0 for i = j
+        """
+        if i == j:
+            return 0
+    
+        xi, yi = self.xy_i(i)
+        xj, yj = self.xy_i(j)
+    
+        d = sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
+        m = sqrt((self.h - 1) ** 2 + (self.w - 1) ** 2)
+        return (m - 0.9 * d - 0.1) / (m - 1)
