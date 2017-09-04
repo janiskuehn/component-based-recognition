@@ -7,21 +7,28 @@ from pics import print_binay_image
 
 class NeuralState:  # S μ
     """A neuron state vector"""
-    w = 0
-    h = 0
-    N = 0
+    w: int = 0
+    h: int = 0
+    N: int = 0
     vec = None
+    periodic = False
+    max_dis: float = -1
     
-    def __init__(self, width: int, height: int, initial_vector: np.ndarray = None):
+    def __init__(self, width: int, height: int, periodic: bool, max_synapse_length: float,
+                 initial_vector: np.ndarray = None):
         """
         A neural state vector. Includes weight * height = N neurons with binary value.
         :param width: Width of the 2D neuron array.
         :param height: Height of the 2D neuron array.
+        :param periodic: Set true for periodic boundaries. Important in distance calculation.
+        :param max_synapse_length: Maximal range of a synapse from one neuron to another. (-1 means infinity)
         :param initial_vector: (optional) Given neural vector with size N.
         """
         self.w = width
         self.h = height
         self.N = width*height
+        self.periodic = periodic
+        self.max_dis = max_synapse_length
         if initial_vector is None:
             self.vec = np.zeros(self.N, dtype=int)
         else:
@@ -30,12 +37,18 @@ class NeuralState:  # S μ
                 quit()
             self.vec = initial_vector.copy()
 
+    def as_matrix(self) -> np.ndarray:
+        """
+        Return activity pattern as 2D matrix.
+        """
+        dim2 = self.vec.reshape(self.w, self.h)
+        return dim2
+        
     def print(self):
         """
         Print out neural activity pattern.
         """
-        dim2 = self.vec.reshape(self.w, self.h)
-        print_binay_image(dim2)
+        print_binay_image(self.as_matrix())
 
     def xy_i(self, i: int) -> (int, int):
         """
@@ -59,17 +72,15 @@ class NeuralState:  # S μ
         Return a binary weight matrix for given state.
         :return: 2D weight matrix with 1 if both neurons are active, else 0.
         """
-        return np.outer(self.vec, self.vec)
+        x = np.outer(self.vec, self.vec)
+        np.fill_diagonal(x, 0)
+        return x
 
-    def initial_weight_localized(self, radius: float, form: int = 0, normalize: bool = False,
-                                 periodic: bool = False) -> np.ndarray:
+    def initial_weight(self, form: int = 0, normalize: bool = False) -> np.ndarray:
         """
         Calculates a weight matrix with linear decreasing weight by distance between neurons.
-        :param radius: Maximal interaction radius of a neuron
         :param form: 0 -> linear, 1-> exp
         :param normalize: If set true the sum of all connection weights for one neuron is 1.
-        :param periodic: If set true the algorithm will assume that the neurons can interact through the
-            border to the other side.
         :return: 2D weight matrix with (i,j) = neuron_linear_distance_weight(i,j)
         """
         weight = np.zeros((self.N, self.N), dtype=float)
@@ -77,64 +88,61 @@ class NeuralState:  # S μ
             for j in range(self.N):
                 if i == j:
                     weight[i][j] = 0
-                xi, yi = self.xy_i(i)
-                xj, yj = self.xy_i(j)
+                    continue
     
-                if not periodic:
-                    d = sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
-                else:
-                    d = 1  # TODO
-
-                not_norm = 0
-                norm = 0
+                d = self.distance(i, j)
                 
-                if d < radius:
+                r = self.max_dis
+                not_norm = 0
+                if r == -1:
+                    r = self.distance(0, self.N - 1)+1
                     if form == 0:
-                        not_norm = (radius - d)/(radius - 1)
-                        if normalize:
-                            norm = not_norm * 2 / (radius - 1)
+                        # linear decrease
+                        not_norm = (r - d) / (r - 1)
+                    elif form == 1:
+                        # exponential decrease
+                        not_norm = exp(-log(10) / (r - 1) * d)
+                    
+                elif d < r:
+                    if form == 0:
+                        # linear decrease
+                        not_norm = (r - d)/(r - 1)
                         
                     elif form == 1:
-                        not_norm = exp(-log(10) / (radius - 1) * d)
-                        if normalize:
-                            norm = not_norm * log(10) / (9 * 10 ** (-radius / (radius - 1)) * (radius - 1))
-                        
-                weight[i][j] = norm if normalize else not_norm
+                        # exponential decrease
+                        not_norm = exp(-log(10) / (r - 1) * d)
+                       
+                weight[i][j] = not_norm
+        
+        if normalize:
+            for i in range(self.N):
+                weight[i] = weight[i] / sum(weight[i])
+            
         return weight
 
-    def initial_weight_linear(self, normalize: bool = False, periodic: bool = False) -> np.ndarray:
-        """
-        Calculates a weight matrix with linear decreasing weight by distance between neurons.
-        :param normalize: If set true the sum of all connection weights for one neuron is 1.
-        :param periodic: If set true the algorithm will assume that the neurons can interact through the
-            border to the other side.
-        :return: 2D weight matrix with (i,j) = neuron_linear_distance_weight(i,j)
-        """
-        weight = np.zeros((self.N, self.N), dtype=float)
+    def distance_matrix(self) -> np.ndarray:
+        d = np.zeros((self.N, self.N), dtype=float)
         for i in range(self.N):
             for j in range(self.N):
-                weight[i][j] = self.neuron_linear_distance_weight(i, j, normalize, periodic)
-        return weight
+                d[i][j] = self.distance(i, j)
+        
+        return d
 
-    def neuron_linear_distance_weight(self, i: int, j: int, normalize: bool = False, periodic: bool = False) -> float:
-        """
-        Calculates the distance relative distance between two neurons.
-        :param i: Index of first neuron.
-        :param j: Index of second neuron.
-        :param normalize: If set true the sum of all connection weights for one neuron is 1.
-        :param periodic: If set true the algorithm will assume that the neurons can interact through the
-            border to the other side.
-        :return: Linear value from 0.1 to 1 (0.1 for the maximum distance between them, 1 for no distance between them)
-                    or 0 for i = j.
-        """
+    def distance(self, i: int, j: int):
         if i == j:
             return 0
-    
+        
         xi, yi = self.xy_i(i)
         xj, yj = self.xy_i(j)
     
-        d = sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
-        m = sqrt((self.h - 1) ** 2 + (self.w - 1) ** 2)
-        not_norm = (m - 0.9 * d - 0.1) / (m - 1)
-        norm = not_norm / (0.6 * (m-1))
-        return norm if normalize else not_norm
+        dis = sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
+    
+        if self.periodic:
+            d_p = [dis]
+            xj_p = [xj + self.w, xj - self.w, xj, xj]
+            yj_p = [yj, yj, yj + self.h, yj - self.h]
+            for k in range(4):
+                d_p.append(sqrt((xi - xj_p[k]) ** 2 + (yi - yj_p[k]) ** 2))
+            dis = min(d_p)
+    
+        return dis
