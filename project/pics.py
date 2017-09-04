@@ -1,7 +1,6 @@
-"""Binarize (make it black and white) an image with Pyhton."""
-
 import numpy as np
 from PIL import Image
+
 
 def bipolize_image(img_path: str, threshold: int = 150) -> np.ndarray:
     """Binarize an image and return it."""
@@ -21,6 +20,7 @@ def bipolize_array(a: np.ndarray, threshold: int = 150) ->np.ndarray:
                 b[i][j] = (-1)
     return b
 
+
 def binarize_image(img_path: str, threshold: int = 150) -> np.ndarray:
     """Binarize an image and return it."""
     image_file = Image.open(img_path)
@@ -28,6 +28,7 @@ def binarize_image(img_path: str, threshold: int = 150) -> np.ndarray:
     image = np.array(image)
     image = binarize_array(image, threshold)
     return image
+
 
 def binarize_array(a: np.ndarray, threshold: int = 150) ->np.ndarray:
     """Binarize a numpy array."""
@@ -38,16 +39,26 @@ def binarize_array(a: np.ndarray, threshold: int = 150) ->np.ndarray:
                 b[i][j] = 1
     return b
 
-def ShowBinayImage(image: np.ndarray):
-    im = Image.new("RGB", image.shape, 0 )
+
+def show_binay_image(image: np.ndarray):
+    im = Image.new("RGB", image.shape, 0)
     for i in range(len(image)):
         for j in range(len(image[i])):
-            im.putpixel((j,i), (0,0,0) if image[i][j] > 0 else (255,255,255) )
+            im.putpixel((j, i), (0, 0, 0) if image[i][j] > 0 else (255, 255, 255))
 
     Image._show(im)
     
+
+#def show_grayscale_matrix(image: np.ndarray):
+#    im = Image.new("RGB", image.shape, 0)
+#    for i in range(len(image)):
+#        for j in range(len(image[i])):
+#            im.putpixel((j, i), (0, 0, 0) if image[i][j] > 0 else (255, 255, 255))
+#
+#    Image._show(im)
     
-def PrintBinayImage(image: np.ndarray):
+    
+def print_binay_image(image: np.ndarray):
     s = ''
     for i in range(len(image)):
         for j in range(len(image[i])):
