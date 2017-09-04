@@ -8,3 +8,12 @@ def print_matrix(matrix: np.ndarray):
             s += ' ' + str(matrix[i][j])
         s += '\n'
     print(s)
+
+
+def metadata(size: int, r: float, dt: float, steps: int, a: float) -> str:
+    return "Mesh size = " + str(size) + " x " + str(size) + \
+            "\nR = " + str(r) + \
+            "\ndt = " + str(dt) + \
+            "\nsteps = " + str(steps) + \
+            "\nt_max = " + str(dt * steps) + \
+            "\nalpha = " + str(a)
