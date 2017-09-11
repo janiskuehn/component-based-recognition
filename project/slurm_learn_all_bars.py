@@ -4,11 +4,13 @@ import weight_evolution1
 import sys
 import barGenerator as bar
 import numpy as np
+from utils import fts
+from os import mkdir
 
 print(len(sys.argv))
 if len(sys.argv) != 8:
     print("Parameters: <Bars per side> <Width of a bar> <Alpha> <dt> <Steps per pattern> <Rotations>"
-          "<Max synaptic range>")
+          " <Max synaptic range>")
     quit()
 
 # Beta:
@@ -17,19 +19,19 @@ B = 1
 PERIODIC = False
 
 # Bars per Dimension:
-BPS = sys.argv[1]
+BPS = int(sys.argv[1])
 # Width of one bar:
-PPB = sys.argv[2]
+PPB = int(sys.argv[2])
 # Alpha:
-A = sys.argv[3]
+A = float(sys.argv[3])
 # Delta T:
-DT = sys.argv[4]
+DT = float(sys.argv[4])
 # Stepcount per Pattern per Rotation:
-SPP = sys.argv[5]
+SPP = int(sys.argv[5])
 # Rotations:
-ROT = sys.argv[6]
+ROT = int(sys.argv[6])
 # Max interaction range of a neuron:
-R = sys.argv[7]
+R = float(sys.argv[7])
 
 
 # set of all possible single bar constellations
@@ -38,7 +40,7 @@ SET = bar.generate_all_distinct_lines(BPS, PPB)
 print('Arguments:')
 print('  Bars per dimension: %i' % BPS)
 print('  Pixels per bar: %i' % PPB)
-print('  Steps per pattern: %f' % SPP)
+print('  Steps per pattern: %i' % SPP)
 print('  Rotations: %i' % ROT)
 print('  Alpha = %f' % A)
 print('  Delta t = %f' % DT)
@@ -59,3 +61,15 @@ w0 = s_set[0].initial_weight(form=1, normalize=True)
 (w_t, t, dw_t, neurons_t) = weight_evolution1.learn_multiple_pattern(w0, s_set, A, B, SPP, ROT, DT)
 
 ax = np.array([w_t, t, dw_t, neurons_t])
+fol = 'results/'
+try:
+    mkdir(fol)
+except OSError:
+    pass  # Folder exists
+
+fn = 'bps='+fts(BPS)+'_ppb='+fts(PPB)+'_spp='+fts(SPP)+'_rot='+fts(ROT)+'_alpha='+fts(A)+'_dt='+fts(DT)+'_r='+fts(R)\
+     + ('_per' if PERIODIC else '') + '.npy'
+
+print('Saving [w(t), t, dw(t), neurons(t)] to '+fol+fn)
+
+np.save(fol+fn, ax)

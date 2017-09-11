@@ -17,3 +17,7 @@ def metadata(size: int, r: float, dt: float, steps: int, a: float) -> str:
             "\nsteps = " + str(steps) + \
             "\nt_max = " + str(dt * steps) + \
             "\nalpha = " + str(a)
+
+
+def fts(inp) -> str:  # Float to String
+    return ('%.15f' % inp).rstrip('0').rstrip('.')
