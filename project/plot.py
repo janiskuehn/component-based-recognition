@@ -308,7 +308,7 @@ def combined_learning_plot_patternwise(weights: list, times: list, dweights: lis
     #
     # Plots
 
-    state_0: NeuralState = neuralstates[0]
+    state_0 = neuralstates[0]
 
     weight_min = np.min(w)
     weight_max = np.max(w)
@@ -323,7 +323,7 @@ def combined_learning_plot_patternwise(weights: list, times: list, dweights: lis
         
         if 0 < i < len(n) + 1:
             ax = axes[0][i]
-            state: NeuralState = n[i-1]
+            state = n[i-1]
             
             z = state.as_matrix()
             

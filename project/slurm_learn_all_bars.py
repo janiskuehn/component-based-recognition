@@ -33,10 +33,6 @@ ROT = int(sys.argv[6])
 # Max interaction range of a neuron:
 R = float(sys.argv[7])
 
-
-# set of all possible single bar constellations
-SET = bar.generate_all_distinct_lines(BPS, PPB)
-
 print('Arguments:')
 print('  Bars per dimension: %i' % BPS)
 print('  Pixels per bar: %i' % PPB)
@@ -45,6 +41,9 @@ print('  Rotations: %i' % ROT)
 print('  Alpha = %f' % A)
 print('  Delta t = %f' % DT)
 print('  Maximal Synaptic range = %f' % R + (' (periodic)' if PERIODIC else ' (not periodic)'))
+
+# set of all possible single bar constellations
+SET = bar.generate_all_distinct_lines(BPS, PPB)
 
 # Execution ##
 s_set = []

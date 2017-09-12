@@ -106,10 +106,10 @@ def learning1(s_set: list, w0: np.ndarray, steps_per_pattern: int, rotations: in
     except OSError:
         pass  # Folder exists
     
-    w: list # list of weight matrices
-    t: list # list of times
-    dw: list # list of weight deviations
-    neurons_t: list # list of neural states
+    # w: list # list of weight matrices
+    # t: list # list of times
+    # dw: list # list of weight deviations
+    # neurons_t: list # list of neural states
     
     print("Learning pattern set ...")
     w, t, dw, neurons_t = we.learn_multiple_pattern(w0, s_set, alpha, beta, steps_per_pattern, rotations, dt)

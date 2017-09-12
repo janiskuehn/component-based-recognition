@@ -7,12 +7,12 @@ from pics import print_binay_image
 
 class NeuralState:  # S μ
     """A neuron state vector"""
-    w: int = 0
-    h: int = 0
-    N: int = 0
+    w = 0
+    h = 0
+    N = 0
     vec = None
     periodic = False
-    max_dis: float = -1
+    max_dis = -1
     
     def __init__(self, width: int, height: int, periodic: bool, max_synapse_length: float,
                  initial_vector: np.ndarray = None):

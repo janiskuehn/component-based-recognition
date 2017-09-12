@@ -6,10 +6,10 @@ import os
 
 class BarTest:
     DEFAULT_DENSITY = 0.5
-    ppb: int = 1
-    bps: int = 1
-    size: int = 1
-    bars_active: np.ndarray = None
+    ppb = 1
+    bps = 1
+    size = 1
+    bars_active = None
     
     def __init__(self, bps: int, ppb: int = 1, density: float = DEFAULT_DENSITY,
                  density_x: float = DEFAULT_DENSITY, density_y: float = DEFAULT_DENSITY,
