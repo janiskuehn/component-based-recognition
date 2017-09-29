@@ -66,7 +66,7 @@ for bb in SET:
 w0 = s_set[0].initial_weight(form=1, normalize=True)
 
 w_f = weight_evolution1.learn_multiple_pattern(w0, s_set, A, B, SPP, ROT, DT, quiet=True,
-                                                                     parallise=PARALLEL, onlyWfinale=True)
+                                               parallise=PARALLEL, only_w_finale=True)
 
 ax = w_f
 fol = 'results/'
@@ -92,6 +92,6 @@ i = 0
 while path.exists('{}_v{:d}.npy'.format(fol+fn, i)):
     i += 1
     
-file = '{}_{:d}.png'.format(fol+fn, i)
+file = '{}_v{:d}.npy'.format(fol+fn, i)
 print('Saving W_finale to '+file)
 np.save(file, ax)

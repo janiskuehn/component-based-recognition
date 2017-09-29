@@ -38,7 +38,7 @@ def index_clustering_by_count(m: np.ndarray, bc: int, min_bs: int) -> list:
     l_i = m.shape[0]
     l_j = m.shape[1]
     bs_i = max(ceil(l_i / bc), min_bs // l_j)
-    bc = ceil(l_i / bs_i)
+    bc = int(ceil(l_i / bs_i))
     
     splits_i = []
     for i in range(bc):

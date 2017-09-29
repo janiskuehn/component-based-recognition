@@ -13,6 +13,99 @@ w_power_calc_times = []
 d_prime_calc_times = []
 
 
+# parallisation concept:
+class ParallelOperator:
+    def __init__(self):
+        self.inQueue = mp.Queue()
+        self.outQueue = mp.Queue()
+        self.workers = [mp.Process(target=po_worker, args=(self.inQueue, self.outQueue,)) for i in range(worker_count)]
+        self.job_id = -1
+        
+        for p in self.workers:
+            p.Daemon = True
+            p.start()
+    
+    def next_job_id(self) -> int:
+        self.job_id += 1
+        return self.job_id
+    
+    def calc_dw(self, d_prime_mat: np.ndarray, w: np.ndarray, s: neural.NeuralState, alpha: float, beta: float,
+                v_m: np.ndarray) -> np.ndarray:
+        ret = np.zeros((s.N, s.N), dtype=float)
+        index_packs = index_clustering_by_count(ret, worker_count, MIN_BLOCKSIZE)
+        log_print("calc_dw indices: " + str(index_packs))
+
+        run_ids = []
+        for pak in index_packs:
+            run_ids.append(self.next_job_id())
+            self.inQueue.put((run_ids[-1], 2, [pak, d_prime_mat, w, s, alpha, beta, v_m, ret]))
+
+        for i in range(len(run_ids)):
+            (run_id, res) = self.outQueue.get()
+            ret += res
+            run_ids.remove(run_id)
+
+        if len(run_ids) > 0:
+            print("Something wrong 1")
+        return ret
+    
+    def calc_d_prime(self, d_mat: np.ndarray, s: neural.NeuralState) -> np.ndarray:
+        ret = np.zeros((s.N, s.N), dtype=float)
+        index_packs = index_clustering_by_count(ret, worker_count, MIN_BLOCKSIZE)
+        log_print("calc_d_prime indices: " + str(index_packs))
+        
+        run_ids = []
+        for pak in index_packs:
+            run_ids.append(self.next_job_id())
+            self.inQueue.put((run_ids[-1], 1, [pak, d_mat, s, ret]))
+
+        for i in range(len(run_ids)):
+            (run_id, res) = self.outQueue.get()
+            ret += res
+            run_ids.remove(run_id)
+        
+        if len(run_ids) > 0:
+            print("Something wrong 2")
+        return ret
+    
+    def close(self):
+        for p in self.workers:
+            self.inQueue.put((-1, None, None))
+        
+        for p in self.workers:
+            self.inQueue.close()
+            self.inQueue.join_thread()
+            self.outQueue.close()
+            self.outQueue.join_thread()
+            p.join()
+            self.workers = None
+
+
+def po_worker(in_q: mp.Queue, out_q: mp.Queue):
+    log_print("Worker started")
+    while True:
+        # log_print("Worker check for input")
+        (r_id, todo, args) = in_q.get()
+        if r_id == -1:  # End progress
+            log_print("Worker stopped")
+            break
+        
+        else:
+            if todo == 1:  # Calculate D_prime
+                # log_print("job %i calc D_prime index indices: " % id + str(args[0]))
+                result = d_prime_matrix_par(*args)
+            
+            elif todo == 2:  # Calculate dW
+                # log_print("job %i calc dW index indices: " % id + str(args[0]))
+                result = delta_w_didj(*args)
+                
+            else:
+                result = None
+
+            out_q.put((r_id, result))
+
+
+# Differetial equation stuff:
 def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: float, steps: int,
                     dt: float = 1, dynamic_dt: bool = False, parallise: bool = False) -> list:
     """
@@ -28,10 +121,14 @@ def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: f
     :param parallise: (optional) Set true for multiprocessing
     :return: A list starting with w0 and ending with w_steps
     """
+    par_op = None
+    if parallise:
+        par_op = ParallelOperator()
+        
     ret = [w0]
     for i in range(1, steps+1):
         try:
-            dw = delta_w(ret[i - 1], s, alpha, beta, parallise)
+            dw = delta_w(ret[i - 1], s, alpha, beta, par_op)
             
         except OverflowError:
             print("Overflow Error by step = "+str(i)+" for alpha = "+str(alpha)+" and dt = "+str(dt))
@@ -42,37 +139,44 @@ def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: f
         dt = dt if not dynamic_dt else 0.1 / np.max(np.abs(dw))
         # log_print("dt="+str(dt)+"_dyn="+str(dynamic_dt))
         ret.append(ret[i-1] + dt * dw)
+        
+    if parallise:
+        par_op.close()
+    
     return ret
 
 
 def euler_evolution_moreinfo(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: float, steps: int,
-                             dt: float = 1, dynamic_dt: bool = False, parallise: bool = False) -> tuple:
+                             dt: float = 1, parallise: bool = False) -> tuple:
     """
     """
-    w_a = [w0]
-    t_a = [0]
-    dw_a = []
-    
-    for i in range(1, steps+1):
-        try:
-            dw = delta_w(w_a[i - 1], s, alpha, beta, parallise)
-            
-        except OverflowError:
-            print("Overflow Error by step = "+str(i)+" for alpha = "+str(alpha)+" and dt = "+str(dt))
-            break
-        except FloatingPointError:
-            print("Overflow Error by step = " + str(i) + " for alpha = " + str(alpha) + " and dt = " + str(dt))
-            break
-        dt = dt if not dynamic_dt else 0.1 / np.max(np.abs(dw))
-        w_a.append(w_a[i-1] + dt * dw)
-        t_a.append(t_a[-1] + dt)
-        dw_a.append(dw)
-        
+    # w_a = [w0]
+    # t_a = [0]
+    # dw_a = []
+    #
+    # for i in range(1, steps+1):
+    #     try:
+    #         dw = delta_w(w_a[i - 1], s, alpha, beta, parallise)
+    #
+    #     except OverflowError:
+    #         print("Overflow Error by step = "+str(i)+" for alpha = "+str(alpha)+" and dt = "+str(dt))
+    #         break
+    #     except FloatingPointError:
+    #         print("Overflow Error by step = " + str(i) + " for alpha = " + str(alpha) + " and dt = " + str(dt))
+    #         break
+    #     dt = dt if not dynamic_dt else 0.1 / np.max(np.abs(dw))
+    #     w_a.append(w_a[i-1] + dt * dw)
+    #     t_a.append(t_a[-1] + dt)
+    #     dw_a.append(dw)
+    #
+    # return w_a, t_a, dw_a
+    (w_a, t_a, dw_a, neurons_a) = learn_multiple_pattern(w0, [s], alpha, beta, steps, 1, dt, parallise,
+                                                         only_w_finale=False, quiet=True)
     return w_a, t_a, dw_a
 
 
 def learn_multiple_pattern(w0: np.ndarray, s_set: list, alpha: float, beta: float, steps_per_pattern: int,
-                           rotations: int, dt: float, parallise: bool = False, onlyWfinale: bool = False,
+                           rotations: int, dt: float, parallise: bool = False, only_w_finale: bool = False,
                            quiet: bool = False):
     """
     
@@ -84,16 +188,23 @@ def learn_multiple_pattern(w0: np.ndarray, s_set: list, alpha: float, beta: floa
     :param rotations:
     :param dt:
     :param parallise: (optional) Set true for multiprocessing
+    :param only_w_finale: If set only the W_finale is returned, otherwise (w_a, t_a, dw_a, neurons_a) is returned
+    :param quiet: do not log progress
     :return:
     """
 
-    if onlyWfinale:
+    par_op = None
+    if parallise:
+        par_op = ParallelOperator()
+        
+    t_a = [0.0]
+    dw_a = []
+    neurons_a = []
+
+    if only_w_finale:
         w_a = w0
     else:
         w_a = [w0]
-        t_a = [0.0]
-        dw_a = []
-        neurons_a = []
     
     for rot in range(rotations):
         # rotation
@@ -109,13 +220,13 @@ def learn_multiple_pattern(w0: np.ndarray, s_set: list, alpha: float, beta: floa
                               % (rot + 1, rotations, p_c, len(s_set), i+1, steps_per_pattern))
                 # learning
                 
-                if onlyWfinale:
+                if only_w_finale:
                     wl = w_a
                 else:
                     wl = w_a[i - 1]
                     
                 try:
-                    dw = delta_w(wl, pat, alpha, beta, parallise)
+                    dw = delta_w(wl, pat, alpha, beta, par_op)
                 except OverflowError:
                     print("Overflow Error by step = " + str(i) + " for alpha = " + str(alpha) + " and dt = " + str(dt))
                     break
@@ -123,82 +234,70 @@ def learn_multiple_pattern(w0: np.ndarray, s_set: list, alpha: float, beta: floa
                     print("Overflow Error by step = " + str(i) + " for alpha = " + str(alpha) + " and dt = " + str(dt))
                     break
             
-                if onlyWfinale:
+                if only_w_finale:
                     w_a = w_a[i - 1] + dt * dw
                 else:
                     w_a.append(w_a[i - 1] + dt * dw)
                     t_a.append(t_a[-1] + dt)
                     dw_a.append(dw)
                     neurons_a.append(pat)
-                    
-    if onlyWfinale:
+
+    if parallise:
+        par_op.close()
+        
+    if only_w_finale:
         return w_a
     else:
         return w_a, t_a, dw_a, neurons_a
 
 
-def delta_w(w: np.ndarray, s: neural.NeuralState, alpha: float, beta: float, parallel: bool = False) -> np.ndarray:
+def delta_w(w: np.ndarray, s: neural.NeuralState, alpha: float, beta: float,
+            parallel_op: ParallelOperator = None) -> np.ndarray:
     """
     Calculates
     :param w: Weight matrix w(t).
     :param s: Neuron state vector S_μ.
     :param alpha: The free parameter Alpha.
     :param beta: Free parameter to weight second term.
+    :param parallel_op: ParallelOperator to use for a asynchronous calculation, for synchron calculation set None
     :return: 2D matrix dw/dt.
     """
     global worker_count, MIN_BLOCKSIZE, dw_calc_times
-    shp = np.shape(w)
-    l = w.shape[0]
-    
-    ret = np.zeros(shp, dtype=float)
     
     d_mat = d_matrix(w)
-    d_prime_mat = d_prime_matrix(d_mat, s, parallel)
+    d_prime_mat = d_prime_matrix(d_mat, s, parallel_op)
 
     dw_calc_start = dati.now()
     
     v_m = v(s)
-    if parallel:
-        index_packs = index_clustering_by_count(ret, worker_count, MIN_BLOCKSIZE)
-        
-        out = mp.JoinableQueue()
-        processes = [mp.Process(target=delta_w_didj, args=(pak, d_prime_mat, w, s, alpha, beta, v_m, ret, out, ))
-                     for pak in index_packs]
-        
-        for p in processes:
-            p.Daemon = True
-            p.start()
-            
-        for p in processes:
-            ret += out.get()
-            
-        for p in processes:
-            p.join()
-
-        while not out.empty():
-            ret += out.get()
+    if parallel_op is not None:
+        ret = parallel_op.calc_dw(d_prime_mat, w, s, alpha, beta, v_m)
         
     else:
-        for i in range(l):
-            for j in range(l):
+        shp = np.shape(w)
+        ret = np.zeros(shp, dtype=float)
+        
+        for i in range(s.N):
+            for j in range(s.N):
                 ret[i][j] = delta_w_ij(i, j, d_prime_mat, w, s, alpha, beta, v_m)
 
-    dw_calc_end = dati.now(); dw_runtime = dw_calc_end - dw_calc_start
+    dw_calc_end = dati.now()
+    dw_runtime = dw_calc_end - dw_calc_start
     dw_calc_times.append(dw_runtime.total_seconds())
     return ret
     
 
 def delta_w_didj(pak: tuple, d_prime_mat: np.ndarray, w: np.ndarray, s: neural.NeuralState,
-                 alpha: float, beta: float, v_m: np.ndarray, dw_ret: np.ndarray, out: mp.Queue):
+                 alpha: float, beta: float, v_m: np.ndarray, dw_ret: np.ndarray):
     for i in range(*pak[0]):
         for j in range(*pak[1]):
-            delta_w_ij(i, j, d_prime_mat, w, s, alpha, beta, v_m, dw_ret)
+            dw_ret[i][j] = delta_w_ij(i, j, d_prime_mat, w, s, alpha, beta, v_m)
             
-    out.put(dw_ret)
+    return dw_ret
     
     
 def delta_w_ij(i: int, j: int, d_prime_mat: np.ndarray, w: np.ndarray, s: neural.NeuralState,
-               alpha: float, beta: float, v_m: np.ndarray, dw_ret: np.ndarray = None) -> float:
+               alpha: float, beta: float, v_m: np.ndarray) -> float:
     """
     Calculate Element i j of dw/dt.
     :param i: Index i.
@@ -209,95 +308,75 @@ def delta_w_ij(i: int, j: int, d_prime_mat: np.ndarray, w: np.ndarray, s: neural
     :param alpha: The free parameter Alpha.
     :param beta: Free parameter to weight second term.
     :param v_m: Distance matrix. (see v(s).)
-    :param dw_ret: (optional) If set the return value will be written to dw_ret[i][j]
     :return: Float Element i j of dw/dt
     """
+    
     if i == j or s.vec[i] == 0 or s.vec[j] == 0:
         return 0
-    first_term = v_m[i][j] * alpha * (1 - s.active_neuron_count() * w[i][j])
     
-    l = w.shape[0]
-    a = [(w[i][j_prime] * d_prime_mat[i][j_prime]) for j_prime in range(l)]
-    
-    second_term = beta * w[i][j] * (d_prime_mat[i][j] - sum(a))
-    
-    ret = first_term + second_term
-    
-    if dw_ret is not None:
-        dw_ret[i][j] = ret
     else:
-        return ret
+        first_term = v_m[i][j] * alpha * (1 - s.active_neuron_count() * w[i][j])
+        
+        a = np.dot(w[i], d_prime_mat[i])
+        second_term = beta * w[i][j] * (d_prime_mat[i][j] - a)
+        
+        return first_term + second_term
 
 
 def d_matrix(w: np.ndarray) -> np.ndarray:
     """
     Calculate matrix D, which solves equation c = D s.
     :param w: Given weight matrix w.
-    :param parallel: (optional) Set true for multiprocessing
     :return: Matrix with identical shape. D = identity + w + w2 + w3
     """
     global w_power_calc_times
     w_power_calc_start = dati.now()
     
-    l = w.shape[0]
-    one = np.identity(l)
+    one = np.identity(w.shape[0])
     
     w2 = la.matrix_power(w, 2)
     w3 = np.dot(w, w2)
 
-    w_power_calc_end = dati.now(); w_power_runtime = w_power_calc_end - w_power_calc_start
+    w_power_calc_end = dati.now()
+    w_power_runtime = w_power_calc_end - w_power_calc_start
     w_power_calc_times.append(w_power_runtime.total_seconds())
     return one + w + w2 + w3
 
 
-def d_prime_matrix(d_mat: np.ndarray, s: neural.NeuralState, parallel: bool = False) -> np.ndarray:
+def d_prime_matrix(d_mat: np.ndarray, s: neural.NeuralState, parallel_op: ParallelOperator = None) -> np.ndarray:
     """
     Calculate matrix D'.
     :param d_mat: Matrix D (as calculated by d_matrix(w))
     :param s: Neural Vector (needed because sum only over active neurons)
-    :param parallel: (optional) Set true for multiprocessing
+    :param parallel_op: (optional) Set a ParallelOperator for multiprocessing
     :return: Matrix D' with D'_ij = sum_k(D_ik * D_jk)
     """
     global worker_count, MIN_BLOCKSIZE, d_prime_calc_times
     d_prime_calc_start = dati.now()
     
-    ret = np.zeros(d_mat.shape, dtype=float)
-    l = d_mat.shape[0]
-    
-    if parallel:
-        index_packs = index_clustering_by_count(ret, worker_count, MIN_BLOCKSIZE)
-        
-        out = mp.Queue()
-        processes = [mp.Process(target=d_prime_matrix_par, args=(pak, d_mat, s, ret, out, ))
-                     for pak in index_packs]
-        
-        for p in processes:
-            p.Daemon = True
-            p.start()
-            
-        for p in processes:
-            ret += out.get()
-            
-        for p in processes:
-            p.join()
+    if parallel_op is not None:
+        ret = parallel_op.calc_d_prime(d_mat, s)
         
     else:
-        for i in range(l):
-            for j in range(l):
+        ret = np.zeros(d_mat.shape, dtype=float)
+        
+        for i in range(s.N):
+            for j in range(s.N):
                 if s.vec[i] != 0 and s.vec[j] != 0:
                     ret[i][j] = np.dot(d_mat[i], d_mat[j])
 
-    d_prime_calc_end = dati.now(); d_prime_runtime = d_prime_calc_end - d_prime_calc_start
+    d_prime_calc_end = dati.now()
+    d_prime_runtime = d_prime_calc_end - d_prime_calc_start
     d_prime_calc_times.append(d_prime_runtime.total_seconds())
     return ret
 
 
-def d_prime_matrix_par(indices: tuple, d_mat: np.ndarray, s: neural.NeuralState, ret: np.ndarray, out: mp.Queue):
+def d_prime_matrix_par(indices: tuple, d_mat: np.ndarray, s: neural.NeuralState, ret: np.ndarray):
     for i in range(*indices[0]):
         for j in range(*indices[1]):
             if s.vec[i] != 0 and s.vec[j] != 0:
                 ret[i][j] = np.dot(d_mat[i], d_mat[j])
-    out.put(ret)
+    return ret
 
 
 def v(s: neural.NeuralState):
@@ -309,8 +388,7 @@ def v(s: neural.NeuralState):
     :return: 2d Numpy Matrix
     """
     v_m = s.distance_matrix()
-    l = v_m.shape[0]
-    for i in range(l):
-        for j in range(l):
+    for i in range(s.N):
+        for j in range(s.N):
             v_m[i][j] = 0 if v_m[i][j] > s.max_dis else 1
     return v_m
