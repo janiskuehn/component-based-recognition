@@ -113,11 +113,9 @@ def combined_plot1(weights: list, times: list, dweights: list, stepsize: int,
     :return:
     """
     
-    l = len(weights)
-    
     w = weights[0::stepsize]
     c_w = len(w)
-    dw = [sum(dweights[i:i+stepsize]) for i in range(0, l - 1, stepsize)]
+    dw = [sum(dweights[i:i+stepsize]) for i in range(0, len(weights) - 1, stepsize)]
     c_dw = len(dw)
     
     l_ax = max(4, c_w + 1)

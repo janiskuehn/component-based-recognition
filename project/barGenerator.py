@@ -59,10 +59,9 @@ class BarTest:
         Create an Numpy array for this bar test
         :return: 2D Numpy array, 1 -> active, 0 -> inactive
         """
-        l = self.size
-        ret = np.zeros((l, l), dtype=int)
-        for i in range(l):
-            for j in range(l):
+        ret = np.zeros((self.size, self.size), dtype=int)
+        for i in range(self.size):
+            for j in range(self.size):
                 if self.bars_active[0][i // self.ppb] == 1 or self.bars_active[1][j // self.ppb] == 1:
                     ret[i][j] = 1
                     
@@ -82,10 +81,9 @@ class BarTest:
         Create an rbg image for this bar test
         :return: Image, black -> active, white -> inactive
         """
-        l = self.size
-        im = img.new("RGB", (l, l))
-        for i in range(l):
-            for j in range(l):
+        im = img.new("RGB", (self.size, self.size))
+        for i in range(self.size):
+            for j in range(self.size):
                 im.putpixel((j, i),
                             (0, 0, 0)
                             if (self.bars_active[0][i // self.ppb] == 1 or self.bars_active[1][j // self.ppb] == 1) else
