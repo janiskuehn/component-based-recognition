@@ -36,6 +36,9 @@ class NeuralState:  # S μ
                 print("Initial vector size does not meet width and height")
                 quit()
             self.vec = initial_vector.copy()
+            
+    def __copy__(self):
+        return self.copy()
 
     def as_matrix(self) -> np.ndarray:
         """
@@ -146,3 +149,6 @@ class NeuralState:  # S μ
             dis = min(d_p)
     
         return dis
+    
+    def copy(self):
+        return NeuralState(self.w, self.h, self.periodic, self.max_dis, self.vec)
