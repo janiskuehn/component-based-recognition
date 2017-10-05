@@ -33,7 +33,7 @@ class ParallelOperator:
                 v_m: np.ndarray) -> np.ndarray:
         ret = np.zeros((s.N, s.N), dtype=float)
         index_packs = index_clustering_by_count(ret, worker_count, MIN_BLOCKSIZE)
-        log_print("calc_dw indices: " + str(index_packs))
+        # log_print("calc_dw indices: " + str(index_packs))
 
         run_ids = []
         for pak in index_packs:
@@ -52,7 +52,7 @@ class ParallelOperator:
     def calc_d_prime(self, d_mat: np.ndarray, s: neural.NeuralState) -> np.ndarray:
         ret = np.zeros((s.N, s.N), dtype=float)
         index_packs = index_clustering_by_count(ret, worker_count, MIN_BLOCKSIZE)
-        log_print("calc_d_prime indices: " + str(index_packs))
+        # log_print("calc_d_prime indices: " + str(index_packs))
         
         run_ids = []
         for pak in index_packs:
@@ -107,7 +107,7 @@ def po_worker(in_q: mp.Queue, out_q: mp.Queue):
 
 # Differetial equation stuff:
 def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: float, steps: int,
-                    dt: float = 1, dynamic_dt: bool = False, parallise: bool = False) -> list:
+                    dt: float = 1, dynamic_dt: bool = False, parallise: bool = True) -> list:
     """
     Applies the Euler differential equation method to delta_w.
     :param w0: Initial state.
@@ -128,7 +128,7 @@ def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: f
     ret = [w0]
     for i in range(1, steps+1):
         try:
-            dw = delta_w(ret[i - 1], s, alpha, beta, par_op)
+            dw = delta_w(ret[-1], s, alpha, beta, par_op)
             
         except OverflowError:
             print("Overflow Error by step = "+str(i)+" for alpha = "+str(alpha)+" and dt = "+str(dt))
@@ -138,7 +138,7 @@ def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: f
             break
         dt = dt if not dynamic_dt else 0.1 / np.max(np.abs(dw))
         # log_print("dt="+str(dt)+"_dyn="+str(dynamic_dt))
-        ret.append(ret[i-1] + dt * dw)
+        ret.append(ret[-1] + dt * dw)
         
     if parallise:
         par_op.close()
@@ -147,36 +147,17 @@ def euler_evolution(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: f
 
 
 def euler_evolution_moreinfo(w0: np.ndarray, s: neural.NeuralState, alpha: float, beta: float, steps: int,
-                             dt: float = 1, parallise: bool = False) -> tuple:
+                             dt: float = 1, parallise: bool = True) -> tuple:
     """
     """
-    # w_a = [w0]
-    # t_a = [0]
-    # dw_a = []
-    #
-    # for i in range(1, steps+1):
-    #     try:
-    #         dw = delta_w(w_a[i - 1], s, alpha, beta, parallise)
-    #
-    #     except OverflowError:
-    #         print("Overflow Error by step = "+str(i)+" for alpha = "+str(alpha)+" and dt = "+str(dt))
-    #         break
-    #     except FloatingPointError:
-    #         print("Overflow Error by step = " + str(i) + " for alpha = " + str(alpha) + " and dt = " + str(dt))
-    #         break
-    #     dt = dt if not dynamic_dt else 0.1 / np.max(np.abs(dw))
-    #     w_a.append(w_a[i-1] + dt * dw)
-    #     t_a.append(t_a[-1] + dt)
-    #     dw_a.append(dw)
-    #
-    # return w_a, t_a, dw_a
+    
     (w_a, t_a, dw_a, neurons_a) = learn_multiple_pattern(w0, [s], alpha, beta, steps, 1, dt, parallise,
                                                          only_w_finale=False, quiet=True)
     return w_a, t_a, dw_a
 
 
 def learn_multiple_pattern(w0: np.ndarray, s_set: list, alpha: float, beta: float, steps_per_pattern: int,
-                           rotations: int, dt: float, parallise: bool = False, only_w_finale: bool = False,
+                           rotations: int, dt: float, parallise: bool = True, only_w_finale: bool = False,
                            quiet: bool = False):
     """
     
