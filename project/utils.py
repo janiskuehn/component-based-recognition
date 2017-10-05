@@ -1,6 +1,8 @@
 import numpy as np
 from datetime import datetime as dati
 from math import ceil
+from neural import NeuralState
+import random
 
 
 def print_matrix(matrix: np.ndarray):
@@ -54,3 +56,32 @@ def index_clustering_by_count(m: np.ndarray, bc: int, min_bs: int) -> list:
 
 def log_print(s: str):
     print(dati.now().strftime('%H:%M:%S,%f') + ' ' + s)
+
+
+def disturb_random(s: NeuralState, strength: float) -> NeuralState:
+    a = s.copy()
+    
+    n = int(a.N * strength)
+    ind = random.sample(range(a.N), n)
+    val = np.random.randint(0, 2, n)
+    a.vec[ind] = val
+    
+    return a
+    
+
+def disturb_inverting(s: NeuralState, strength: float) -> NeuralState:
+    a = s.copy()
+    
+    c = a.active_neuron_count()
+    n = int(c * strength)
+
+    ind_inactive = np.where(n == 0)
+    ind_inactive = random.sample(ind_inactive, n)
+    
+    ind_active = a.vec.nonzero()
+    ind_active = random.sample(ind_active, n)
+
+    a.vec[ind_inactive] = np.zeros(n)
+    a.vec[ind_active] = np.ones(n)
+    
+    return a
