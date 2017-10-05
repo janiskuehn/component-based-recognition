@@ -11,7 +11,9 @@ from datetime import datetime as dati
 
 if 9 < len(sys.argv) or len(sys.argv) < 8:
     print("Parameters: <Bars per side> <Width of a bar> <Alpha> <dt> <Steps per pattern> <Rotations>"
-          " <Max synaptic range> [-p for parallel processing]")
+          " <Max synaptic range>")
+    
+    #  [-p for parallel processing]
     quit()
 
 # Beta:
@@ -34,9 +36,9 @@ ROT = int(sys.argv[6])
 # Max interaction range of a neuron:
 R = float(sys.argv[7])
 # Use mutliprocessing:
-PARALLEL = False
-if len(sys.argv) == 9 and sys.argv[8] == "-p":
-    PARALLEL = True
+PARALLEL = True
+# if len(sys.argv) == 9 and sys.argv[8] == "-p":
+#     PARALLEL = True
 
 print('Arguments:')
 print('  Bars per dimension: %i' % BPS)

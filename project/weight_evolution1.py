@@ -221,9 +221,9 @@ def learn_multiple_pattern(w0: np.ndarray, s_set: list, alpha: float, beta: floa
                 # learning
                 
                 if only_w_finale:
-                    wl = w_a
+                    wl = w_a.copy()
                 else:
-                    wl = w_a[i - 1]
+                    wl = w_a[-1]
                     
                 try:
                     dw = delta_w(wl, pat, alpha, beta, par_op)
@@ -235,9 +235,9 @@ def learn_multiple_pattern(w0: np.ndarray, s_set: list, alpha: float, beta: floa
                     break
             
                 if only_w_finale:
-                    w_a = w_a[i - 1] + dt * dw
+                    w_a = (wl + dt * dw)
                 else:
-                    w_a.append(w_a[i - 1] + dt * dw)
+                    w_a.append(wl + dt * dw)
                     t_a.append(t_a[-1] + dt)
                     dw_a.append(dw)
                     neurons_a.append(pat)
